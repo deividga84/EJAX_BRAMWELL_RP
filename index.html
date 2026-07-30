@@ -1,0 +1,956 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>EJAX BRAMWELL RP — Servidor Oficial</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Outfit:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+<style>
+/* ── RESET ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --gold:    #D4A017;
+  --gold-lt: #F0C842;
+  --red:     #9B1C1C;
+  --red-lt:  #C0392B;
+  --night:   #08080F;
+  --surface: #10101C;
+  --card:    #14142A;
+  --border:  rgba(212,160,23,.18);
+  --text:    #EDEDF0;
+  --muted:   #6B6B8A;
+  --font-d:  'Bebas Neue', sans-serif;
+  --font-b:  'Outfit', sans-serif;
+  --font-m:  'Space Mono', monospace;
+}
+html { scroll-behavior: smooth; }
+body {
+  background: var(--night);
+  color: var(--text);
+  font-family: var(--font-b);
+  overflow-x: hidden;
+  line-height: 1.6;
+}
+::selection { background: var(--gold); color: #000; }
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--night); }
+::-webkit-scrollbar-thumb { background: var(--gold); border-radius: 3px; }
+
+/* ── CANVAS ── */
+#city-canvas {
+  position: fixed; top: 0; left: 0;
+  width: 100%; height: 100%;
+  pointer-events: none;
+  z-index: 0;
+  opacity: .3;
+}
+
+/* ── NAV ── */
+nav {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 18px 60px;
+  background: linear-gradient(to bottom, rgba(8,8,15,.96) 0%, transparent 100%);
+  transition: background .3s, border-color .3s;
+  border-bottom: 1px solid transparent;
+}
+nav.scrolled {
+  background: rgba(8,8,15,.97);
+  border-bottom-color: var(--border);
+}
+.nav-logo {
+  font-family: var(--font-d);
+  font-size: 1.5rem;
+  letter-spacing: .12em;
+  color: var(--gold);
+  text-decoration: none;
+  display: flex; align-items: center; gap: 10px;
+}
+.nav-logo .logo-plain { color: var(--text); }
+.nav-badge {
+  font-family: var(--font-m);
+  font-size: .55rem;
+  background: var(--red);
+  color: #fff;
+  padding: 3px 8px;
+  border-radius: 2px;
+  letter-spacing: .1em;
+}
+.nav-links { display: flex; gap: 36px; list-style: none; }
+.nav-links a {
+  color: var(--muted); text-decoration: none;
+  font-size: .82rem; font-weight: 500;
+  letter-spacing: .06em; text-transform: uppercase;
+  transition: color .2s;
+}
+.nav-links a:hover { color: var(--gold); }
+.nav-cta {
+  background: var(--gold); color: #000;
+  font-family: var(--font-b); font-weight: 700;
+  font-size: .78rem; letter-spacing: .08em;
+  text-transform: uppercase; padding: 10px 22px;
+  border-radius: 3px; text-decoration: none;
+  transition: background .2s, transform .15s;
+}
+.nav-cta:hover { background: var(--gold-lt); transform: translateY(-1px); }
+
+/* ════════════════════════════════
+   ── HERO (REWRITTEN) ──
+════════════════════════════════ */
+#hero {
+  position: relative;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  z-index: 1;
+  padding: 120px 24px 180px;  /* top clears nav, bottom clears stats bar */
+  overflow: hidden;
+}
+
+/* Grid background — contained inside hero */
+.hero-grid {
+  position: absolute; inset: 0; pointer-events: none;
+  background-image:
+    linear-gradient(rgba(212,160,23,.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(212,160,23,.045) 1px, transparent 1px);
+  background-size: 60px 60px;
+}
+
+/* Radial vignette so grid fades at edges */
+.hero-vignette {
+  position: absolute; inset: 0; pointer-events: none;
+  background: radial-gradient(ellipse 80% 80% at 50% 50%,
+    transparent 30%, var(--night) 100%);
+}
+
+/* Scan line — full-hero, separate element, no glitchy pseudo collision */
+.hero-scanline {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent 0%, var(--gold) 40%, var(--gold-lt) 50%, var(--gold) 60%, transparent 100%);
+  opacity: 0;
+  animation: scanline-move 5s ease-in-out infinite 1.5s;
+  pointer-events: none;
+  z-index: 2;
+}
+@keyframes scanline-move {
+  0%   { top: 0%;   opacity: 0; }
+  3%   { opacity: .6; }
+  97%  { opacity: .6; }
+  100% { top: 100%; opacity: 0; }
+}
+
+/* Hero content wrapper — sits above overlays */
+.hero-content { position: relative; z-index: 3; }
+
+/* Eyebrow */
+.hero-eyebrow {
+  font-family: var(--font-m);
+  font-size: .68rem;
+  letter-spacing: .32em;
+  color: var(--gold);
+  text-transform: uppercase;
+  margin-bottom: 28px;
+  opacity: 0;
+  animation: fade-up .6s .4s ease-out forwards;
+}
+
+/* ── GLITCH TITLE (cleaned up) ── */
+/* 
+   Key fix: glitch pseudo-elements now live on a PLAIN element, 
+   no nested children to collide with. Color is set directly on 
+   the span, not via a child .accent class.
+*/
+.hero-title {
+  font-family: var(--font-d);
+  font-size: clamp(4.5rem, 13vw, 11rem);
+  line-height: .88;
+  letter-spacing: .04em;
+  margin-bottom: 8px;
+  opacity: 0;
+  animation: fade-up .6s .6s ease-out forwards;
+}
+
+/* EJAX — glitch word (no children) */
+.gword {
+  display: block;
+  color: var(--gold);
+  position: relative;
+}
+.gword::before,
+.gword::after {
+  content: attr(data-g);
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  font-family: var(--font-d);
+  font-size: inherit;
+  letter-spacing: inherit;
+  pointer-events: none;
+}
+.gword::before {
+  color: var(--red-lt);
+  clip-path: polygon(0 15%, 100% 15%, 100% 40%, 0 40%);
+  animation: g-before 5s infinite 2s;
+}
+.gword::after {
+  color: #29c7ff;
+  clip-path: polygon(0 60%, 100% 60%, 100% 82%, 0 82%);
+  animation: g-after 5s infinite 2s;
+}
+@keyframes g-before {
+  0%,85%,100% { transform: none; opacity: 0; }
+  86%   { transform: translate(4px, -2px);  opacity: .75; }
+  88%   { transform: translate(-4px, 2px);  opacity: .75; }
+  90%   { transform: translate(2px, 0);     opacity: .75; }
+  92%   { opacity: 0; }
+}
+@keyframes g-after {
+  0%,87%,100% { transform: none; opacity: 0; }
+  88%   { transform: translate(-5px, 2px);  opacity: .65; }
+  90%   { transform: translate(5px, -2px);  opacity: .65; }
+  92%   { transform: translate(-2px, 0);    opacity: .65; }
+  93%   { opacity: 0; }
+}
+
+/* BRAMWELL — plain, white */
+.title-plain { display: block; color: var(--text); }
+
+/* RP subtitle */
+.hero-sub {
+  font-family: var(--font-d);
+  font-size: clamp(1.4rem, 3.5vw, 2.8rem);
+  letter-spacing: .45em;
+  color: var(--red-lt);
+  margin-bottom: 32px;
+  opacity: 0;
+  animation: fade-up .6s .8s ease-out forwards;
+}
+
+/* Description */
+.hero-desc {
+  max-width: 520px;
+  margin: 0 auto 48px;
+  font-size: 1rem;
+  color: var(--muted);
+  font-weight: 300;
+  line-height: 1.75;
+  opacity: 0;
+  animation: fade-up .6s 1s ease-out forwards;
+}
+.hero-desc strong { color: var(--text); font-weight: 600; }
+
+/* CTA buttons */
+.hero-btns {
+  display: flex; gap: 14px; justify-content: center; flex-wrap: wrap;
+  opacity: 0;
+  animation: fade-up .6s 1.2s ease-out forwards;
+  margin-bottom: 0;
+}
+
+/* ── Stats bar — in-flow at bottom of hero ── */
+.hero-stats-wrap {
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  display: flex; justify-content: center;
+  padding: 0 24px 0;
+  z-index: 3;
+  opacity: 0;
+  animation: fade-up .6s 1.4s ease-out forwards;
+}
+.hero-stats {
+  display: flex;
+  background: rgba(14,14,28,.9);
+  border: 1px solid var(--border);
+  border-bottom: none;
+  border-radius: 8px 8px 0 0;
+  overflow: hidden;
+  backdrop-filter: blur(16px);
+  width: 100%;
+  max-width: 640px;
+}
+.stat-item {
+  flex: 1;
+  padding: 18px 20px;
+  text-align: center;
+  position: relative;
+}
+.stat-item + .stat-item::before {
+  content: ''; position: absolute;
+  left: 0; top: 20%; bottom: 20%;
+  width: 1px; background: var(--border);
+}
+.stat-num {
+  font-family: var(--font-d);
+  font-size: 1.9rem;
+  color: var(--gold);
+  letter-spacing: .05em;
+  display: block;
+  line-height: 1;
+  margin-bottom: 4px;
+}
+.stat-label {
+  font-family: var(--font-m);
+  font-size: .56rem;
+  color: var(--muted);
+  letter-spacing: .16em;
+  text-transform: uppercase;
+}
+
+/* ── SHARED BUTTONS ── */
+.btn-primary {
+  display: inline-flex; align-items: center; gap: 12px;
+  background: var(--gold); color: #000;
+  font-family: var(--font-b); font-weight: 700;
+  font-size: .95rem; letter-spacing: .06em;
+  text-transform: uppercase; padding: 16px 38px;
+  border-radius: 4px; text-decoration: none;
+  position: relative; overflow: hidden;
+  border: none; cursor: pointer;
+  transition: transform .2s, box-shadow .2s;
+}
+.btn-primary::after {
+  content: '';
+  position: absolute; top: 0; left: -100%;
+  width: 100%; height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,.3), transparent);
+  transition: left .5s;
+}
+.btn-primary:hover::after { left: 100%; }
+.btn-primary:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 14px 40px rgba(212,160,23,.45);
+}
+
+.btn-ghost {
+  display: inline-flex; align-items: center; gap: 10px;
+  border: 1px solid var(--border); color: var(--muted);
+  font-size: .88rem; font-weight: 500;
+  padding: 16px 30px; border-radius: 4px;
+  text-decoration: none; letter-spacing: .04em;
+  transition: border-color .2s, color .2s;
+}
+.btn-ghost:hover { border-color: var(--gold); color: var(--gold); }
+
+/* ── ANIMATIONS ── */
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(28px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.reveal {
+  opacity: 0; transform: translateY(28px);
+  transition: opacity .7s ease, transform .7s ease;
+}
+.reveal.visible { opacity: 1; transform: none; }
+
+/* ── DOWNLOAD SECTION ── */
+#download {
+  position: relative; z-index: 1;
+  padding: 120px 60px;
+}
+.section-label {
+  font-family: var(--font-m);
+  font-size: .62rem; letter-spacing: .3em;
+  color: var(--gold); text-transform: uppercase;
+  margin-bottom: 14px;
+}
+.section-title {
+  font-family: var(--font-d);
+  font-size: clamp(2.4rem, 5vw, 4.2rem);
+  letter-spacing: .04em; line-height: 1;
+  margin-bottom: 14px;
+}
+.section-sub {
+  color: var(--muted); font-size: .92rem;
+  max-width: 460px; margin-bottom: 56px;
+}
+
+.download-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px; padding: 48px;
+  max-width: 780px; position: relative; overflow: hidden;
+}
+.download-card::before {
+  content: '';
+  position: absolute; top: 0; left: 0; right: 0; height: 3px;
+  background: linear-gradient(90deg, var(--red), var(--gold), var(--gold-lt), var(--gold), var(--red));
+  background-size: 300% 100%;
+  animation: shimmer 3s linear infinite;
+}
+@keyframes shimmer {
+  0% { background-position: 0% 0; }
+  100% { background-position: 300% 0; }
+}
+.download-meta {
+  display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 36px;
+}
+.meta-pill {
+  display: flex; align-items: center; gap: 8px;
+  background: rgba(212,160,23,.07);
+  border: 1px solid var(--border);
+  border-radius: 4px; padding: 8px 14px;
+}
+.meta-pill-icon { font-size: .95rem; }
+.meta-pill-text { font-family: var(--font-m); font-size: .67rem; color: var(--muted); }
+.meta-pill-text strong { color: var(--gold); display: block; }
+
+.download-inner {
+  display: flex; align-items: flex-start; gap: 28px; flex-wrap: wrap;
+}
+.apk-icon {
+  width: 76px; height: 76px; flex-shrink: 0;
+  background: linear-gradient(135deg, var(--red) 0%, var(--red-lt) 100%);
+  border-radius: 18px;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 12px 40px rgba(155,28,28,.4);
+}
+.apk-icon svg { width: 38px; height: 38px; }
+.download-info { flex: 1; min-width: 220px; }
+.download-info h3 {
+  font-family: var(--font-d);
+  font-size: 1.7rem; letter-spacing: .06em; margin-bottom: 6px;
+}
+.download-info p { color: var(--muted); font-size: .84rem; margin-bottom: 18px; }
+
+.dl-counter {
+  display: flex; align-items: center; gap: 8px;
+  font-family: var(--font-m); font-size: .67rem;
+  color: var(--muted); margin-bottom: 12px;
+}
+.dl-dot {
+  width: 7px; height: 7px; background: var(--gold);
+  border-radius: 50%;
+  box-shadow: 0 0 6px var(--gold);
+  animation: blink 1.4s ease-in-out infinite;
+}
+@keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: .15; } }
+
+.progress-bar-wrap {
+  height: 3px; background: rgba(255,255,255,.06);
+  border-radius: 2px; overflow: hidden;
+  width: 100%; max-width: 300px; margin-bottom: 24px;
+}
+.progress-bar {
+  height: 100%; width: 0%;
+  background: linear-gradient(90deg, var(--gold), var(--gold-lt));
+  border-radius: 2px;
+  transition: width 1.6s cubic-bezier(.4,0,.2,1);
+}
+.download-card-watermark {
+  position: absolute; right: -8px; bottom: -24px;
+  font-family: var(--font-d); font-size: 9rem;
+  color: rgba(212,160,23,.04); pointer-events: none;
+  white-space: nowrap; letter-spacing: -.02em; user-select: none;
+}
+
+/* ── STEPS ── */
+#como-entrar {
+  position: relative; z-index: 1;
+  padding: 0 60px 120px;
+}
+.steps-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 2px; margin-top: 56px;
+  background: var(--border); border-radius: 10px; overflow: hidden;
+}
+.step-card {
+  background: var(--card); padding: 40px 30px;
+  position: relative; transition: background .25s;
+}
+.step-card:hover { background: #191932; }
+.step-num {
+  font-family: var(--font-d); font-size: 5rem;
+  color: rgba(212,160,23,.1); line-height: 1;
+  margin-bottom: 12px; letter-spacing: -.02em;
+  transition: color .25s;
+}
+.step-card:hover .step-num { color: rgba(212,160,23,.2); }
+.step-icon { font-size: 1.5rem; display: block; margin-bottom: 14px; }
+.step-title {
+  font-family: var(--font-d); font-size: 1.25rem;
+  letter-spacing: .06em; margin-bottom: 10px;
+}
+.step-desc { font-size: .84rem; color: var(--muted); line-height: 1.65; }
+code { color: var(--gold); font-size: .8rem; }
+.step-badge {
+  position: absolute; top: 18px; right: 18px;
+  font-family: var(--font-m); font-size: .55rem;
+  color: var(--gold); border: 1px solid var(--border);
+  padding: 3px 8px; border-radius: 2px; letter-spacing: .1em;
+}
+
+/* ── FEATURES ── */
+#features {
+  position: relative; z-index: 1;
+  padding: 0 60px 120px;
+}
+.features-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 18px; margin-top: 56px;
+}
+.feat-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px; padding: 34px 30px;
+  position: relative; overflow: hidden;
+  transition: transform .25s, border-color .25s, box-shadow .25s;
+}
+.feat-card::after {
+  content: '';
+  position: absolute; bottom: 0; left: 0; right: 0; height: 1px;
+  background: linear-gradient(90deg, transparent, var(--gold), transparent);
+  opacity: 0; transition: opacity .3s;
+}
+.feat-card:hover { transform: translateY(-4px); border-color: rgba(212,160,23,.3); box-shadow: 0 20px 50px rgba(0,0,0,.4); }
+.feat-card:hover::after { opacity: 1; }
+.feat-icon {
+  width: 50px; height: 50px; border-radius: 10px;
+  background: rgba(212,160,23,.08);
+  border: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.3rem; margin-bottom: 20px;
+  transition: background .25s;
+}
+.feat-card:hover .feat-icon { background: rgba(212,160,23,.16); }
+.feat-title {
+  font-family: var(--font-d); font-size: 1.2rem;
+  letter-spacing: .06em; margin-bottom: 10px;
+}
+.feat-desc { font-size: .83rem; color: var(--muted); line-height: 1.65; }
+
+/* ── PROMO ── */
+.promo {
+  position: relative; z-index: 1;
+  margin: 0 60px 120px;
+  border-radius: 14px; overflow: hidden;
+  background: linear-gradient(135deg, #0c0c22 0%, #1a0808 60%, #0c0c22 100%);
+  border: 1px solid rgba(155,28,28,.35);
+  padding: 90px 60px; text-align: center;
+}
+.promo::before {
+  content: ''; position: absolute; inset: 0;
+  background:
+    radial-gradient(ellipse 70% 80% at 15% 50%, rgba(155,28,28,.18), transparent),
+    radial-gradient(ellipse 70% 80% at 85% 50%, rgba(212,160,23,.1), transparent);
+}
+.promo > * { position: relative; }
+.promo h2 {
+  font-family: var(--font-d);
+  font-size: clamp(2.4rem, 6vw, 5.5rem);
+  letter-spacing: .06em; margin-bottom: 16px;
+}
+.promo p {
+  color: var(--muted); font-size: .98rem;
+  margin: 0 auto 40px; max-width: 460px;
+}
+
+/* ── FOOTER ── */
+footer {
+  position: relative; z-index: 1;
+  border-top: 1px solid var(--border);
+  padding: 60px 60px 40px;
+}
+.footer-top {
+  display: flex; align-items: flex-start;
+  justify-content: space-between; flex-wrap: wrap; gap: 40px;
+  margin-bottom: 48px;
+}
+.footer-brand h3 {
+  font-family: var(--font-d); font-size: 1.5rem;
+  letter-spacing: .1em; color: var(--gold); margin-bottom: 10px;
+}
+.footer-brand p { font-size: .82rem; color: var(--muted); max-width: 240px; line-height: 1.65; }
+.footer-links { display: flex; gap: 56px; flex-wrap: wrap; }
+.footer-col h4 {
+  font-family: var(--font-m); font-size: .62rem;
+  letter-spacing: .2em; color: var(--gold);
+  text-transform: uppercase; margin-bottom: 18px;
+}
+.footer-col ul { list-style: none; display: flex; flex-direction: column; gap: 10px; }
+.footer-col a { color: var(--muted); text-decoration: none; font-size: .82rem; transition: color .2s; }
+.footer-col a:hover { color: var(--text); }
+.footer-bottom {
+  display: flex; align-items: center; justify-content: space-between;
+  flex-wrap: wrap; gap: 14px;
+  padding-top: 28px; border-top: 1px solid var(--border);
+}
+.footer-copy { font-family: var(--font-m); font-size: .6rem; color: var(--muted); letter-spacing: .1em; }
+.status-badge {
+  display: flex; align-items: center; gap: 8px;
+  font-family: var(--font-m); font-size: .6rem;
+  color: #4ade80; letter-spacing: .1em;
+}
+.status-dot {
+  width: 7px; height: 7px; background: #4ade80; border-radius: 50%;
+  box-shadow: 0 0 8px rgba(74,222,128,.7);
+  animation: blink 2s ease-in-out infinite;
+}
+
+/* ── RESPONSIVE ── */
+@media (max-width: 768px) {
+  nav { padding: 15px 20px; }
+  .nav-links, .nav-cta { display: none; }
+  #hero { padding: 100px 20px 140px; }
+  #download, #como-entrar, #features { padding-left: 20px; padding-right: 20px; }
+  .promo { margin: 0 20px 80px; padding: 50px 24px; }
+  footer { padding: 40px 20px 30px; }
+  .footer-top { flex-direction: column; }
+  .download-inner { flex-direction: column; }
+  .progress-bar-wrap { max-width: 100%; }
+}
+</style>
+</head>
+<body>
+
+<canvas id="city-canvas"></canvas>
+
+<!-- NAV -->
+<nav id="navbar">
+  <a href="#" class="nav-logo">
+    EJAX <span class="logo-plain">BRAMWELL</span>
+    <span class="nav-badge">RP</span>
+  </a>
+  <ul class="nav-links">
+    <li><a href="#download">Download</a></li>
+    <li><a href="#como-entrar">Como Entrar</a></li>
+    <li><a href="#features">Recursos</a></li>
+  </ul>
+  <a href="#download" class="nav-cta">Baixar Launcher</a>
+</nav>
+
+<!-- HERO -->
+<section id="hero">
+  <!-- Background layers -->
+  <div class="hero-grid"></div>
+  <div class="hero-vignette"></div>
+  <div class="hero-scanline"></div>
+
+  <!-- All content in one non-overlapping wrapper -->
+  <div class="hero-content">
+    <p class="hero-eyebrow">— Servidor Oficial de Roleplay —</p>
+
+    <h1 class="hero-title">
+      <!-- EJAX: glitch word, no child elements -->
+      <span class="gword" data-g="EJAX">EJAX</span>
+      <!-- BRAMWELL: plain, no pseudo-elements touching it -->
+      <span class="title-plain">BRAMWELL</span>
+    </h1>
+
+    <p class="hero-sub">ROLEPLAY</p>
+
+    <p class="hero-desc">
+      Mergulhe em um universo de <strong>roleplay imersivo</strong> com economia
+      real, facções rivais, sistema policial e muito mais.
+      Baixe o launcher e entre agora.
+    </p>
+
+    <div class="hero-btns">
+      <a href="#download" class="btn-primary">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+          <path d="M12 15V3"/><path d="M8 11l4 4 4-4"/><path d="M2 17l.621 2.485A2 2 0 004.561 21h14.878a2 2 0 001.94-1.515L22 17"/>
+        </svg>
+        Baixar Launcher APK
+      </a>
+      <a href="#como-entrar" class="btn-ghost">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/>
+        </svg>
+        Como entrar
+      </a>
+    </div>
+  </div>
+
+  <!-- Stats bar anchored to bottom of hero -->
+  <div class="hero-stats-wrap">
+    <div class="hero-stats">
+      <div class="stat-item">
+        <span class="stat-num" id="stat-players">—</span>
+        <span class="stat-label">Online agora</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-num" id="stat-downloads">—</span>
+        <span class="stat-label">Downloads</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-num">24/7</span>
+        <span class="stat-label">Uptime</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-num" style="color:var(--red-lt)">BR</span>
+        <span class="stat-label">Servidor</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- DOWNLOAD -->
+<section id="download">
+  <div class="reveal">
+    <p class="section-label">Acesso ao servidor</p>
+    <h2 class="section-title">Baixe o <span style="color:var(--gold)">Launcher</span></h2>
+    <p class="section-sub">Um único arquivo APK para Android. Instale, abra e conecte-se em segundos.</p>
+  </div>
+
+  <div class="download-card reveal">
+    <div class="download-meta">
+      <div class="meta-pill">
+        <span class="meta-pill-icon">📱</span>
+        <div class="meta-pill-text">Compatível com<strong>Android 7.0+</strong></div>
+      </div>
+      <div class="meta-pill">
+        <span class="meta-pill-icon">🔒</span>
+        <div class="meta-pill-text">Verificado &amp; Seguro<strong>100% Limpo</strong></div>
+      </div>
+      <div class="meta-pill">
+        <span class="meta-pill-icon">⚡</span>
+        <div class="meta-pill-text">Versão atual<strong>v1.0.0</strong></div>
+      </div>
+    </div>
+
+    <div class="download-inner">
+      <div class="apk-icon">
+        <svg viewBox="0 0 24 24" fill="white">
+          <path d="M6 18c0 .55.45 1 1 1h1v3.5c0 .83.67 1.5 1.5 1.5s1.5-.67 1.5-1.5V19h2v3.5c0 .83.67 1.5 1.5 1.5s1.5-.67 1.5-1.5V19h1c.55 0 1-.45 1-1V8H6v10zM3.5 8C2.67 8 2 8.67 2 9.5v7c0 .83.67 1.5 1.5 1.5S5 17.33 5 16.5v-7C5 8.67 4.33 8 3.5 8zm17 0c-.83 0-1.5.67-1.5 1.5v7c0 .83.67 1.5 1.5 1.5s1.5-.67 1.5-1.5v-7c0-.83-.67-1.5-1.5-1.5zm-4.97-5.84l1.3-1.3c.2-.2.2-.51 0-.71-.2-.2-.51-.2-.71 0l-1.48 1.48C14.15 1.23 13.1 1 12 1c-1.1 0-2.15.23-3.09.63L7.43.15c-.2-.2-.51-.2-.71 0-.2.2-.2.51 0 .71l1.3 1.3C6.34 3.15 5 5.42 5 8h14c0-2.58-1.34-4.85-3.47-5.84zM10 5H9V4h1v1zm5 0h-1V4h1v1z"/>
+        </svg>
+      </div>
+
+      <div class="download-info">
+        <h3>EJAX BRAMWELL RP — Launcher</h3>
+        <p>O launcher oficial para conectar ao servidor. Ative "Fontes desconhecidas" antes de instalar.</p>
+        <div class="dl-counter">
+          <span class="dl-dot"></span>
+          <span id="dl-text">3.847 downloads realizados</span>
+        </div>
+        <div class="progress-bar-wrap">
+          <div class="progress-bar" id="dl-bar"></div>
+        </div>
+        <a href="assets/ejax-launcher.apk" download id="dl-btn" class="btn-primary">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+            <path d="M12 15V3"/><path d="M8 11l4 4 4-4"/><path d="M2 17l.621 2.485A2 2 0 004.561 21h14.878a2 2 0 001.94-1.515L22 17"/>
+          </svg>
+          Download Grátis — APK
+        </a>
+      </div>
+    </div>
+    <div class="download-card-watermark">APK</div>
+  </div>
+</section>
+
+<!-- COMO ENTRAR -->
+<section id="como-entrar">
+  <div class="reveal">
+    <p class="section-label">Passo a passo</p>
+    <h2 class="section-title">Como <span style="color:var(--gold)">Entrar</span></h2>
+    <p class="section-sub">Três passos simples e você já está dentro do servidor.</p>
+  </div>
+  <div class="steps-grid reveal">
+    <div class="step-card">
+      <div class="step-num">01</div>
+      <span class="step-icon">⬇️</span>
+      <h3 class="step-title">BAIXE O APK</h3>
+      <p class="step-desc">Clique em Download e salve o arquivo <code>ejax-launcher.apk</code> no seu Android.</p>
+      <span class="step-badge">GRÁTIS</span>
+    </div>
+    <div class="step-card">
+      <div class="step-num">02</div>
+      <span class="step-icon">🔓</span>
+      <h3 class="step-title">ATIVE FONTES</h3>
+      <p class="step-desc">Acesse <strong>Configurações → Segurança → Fontes desconhecidas</strong> e permita apps externos.</p>
+      <span class="step-badge">ANDROID</span>
+    </div>
+    <div class="step-card">
+      <div class="step-num">03</div>
+      <span class="step-icon">🎮</span>
+      <h3 class="step-title">INSTALE E JOGUE</h3>
+      <p class="step-desc">Abra o APK, instale, crie sua conta e entre no <strong>EJAX BRAMWELL RP</strong> agora.</p>
+      <span class="step-badge">ONLINE</span>
+    </div>
+  </div>
+</section>
+
+<!-- FEATURES -->
+<section id="features">
+  <div class="reveal">
+    <p class="section-label">Por que jogar aqui</p>
+    <h2 class="section-title">Recursos do <span style="color:var(--gold)">Servidor</span></h2>
+    <p class="section-sub">Uma experiência de RP completa para a comunidade brasileira.</p>
+  </div>
+  <div class="features-grid reveal">
+    <div class="feat-card">
+      <div class="feat-icon">🏙️</div>
+      <h3 class="feat-title">MAPA IMERSIVO</h3>
+      <p class="feat-desc">Cidade detalhada com bairros, rotas e cenários exclusivos para cada facção.</p>
+    </div>
+    <div class="feat-card">
+      <div class="feat-icon">💰</div>
+      <h3 class="feat-title">ECONOMIA REAL</h3>
+      <p class="feat-desc">Empregos, negócios, investimentos e sistema financeiro próprio.</p>
+    </div>
+    <div class="feat-card">
+      <div class="feat-icon">🚔</div>
+      <h3 class="feat-title">SISTEMA POLICIAL</h3>
+      <p class="feat-desc">Polícia ativa, mandados de prisão e ficha criminal completa.</p>
+    </div>
+    <div class="feat-card">
+      <div class="feat-icon">🤝</div>
+      <h3 class="feat-title">FACÇÕES &amp; GÂNGUES</h3>
+      <p class="feat-desc">Crie ou entre em facções, dispute territórios e domine a cidade.</p>
+    </div>
+    <div class="feat-card">
+      <div class="feat-icon">🚗</div>
+      <h3 class="feat-title">FROTA EXCLUSIVA</h3>
+      <p class="feat-desc">Dezenas de veículos customizáveis com mecânicas de manutenção.</p>
+    </div>
+    <div class="feat-card">
+      <div class="feat-icon">🛡️</div>
+      <h3 class="feat-title">ANTI-CHEAT ATIVO</h3>
+      <p class="feat-desc">Moderação 24h e sistema anti-cheat para um RP justo para todos.</p>
+    </div>
+  </div>
+</section>
+
+<!-- PROMO -->
+<div class="promo reveal">
+  <h2>ENTRE AGORA.<br><span style="color:var(--gold)">A CIDADE ESPERA.</span></h2>
+  <p>Junte-se a centenas de jogadores e comece sua história no EJAX BRAMWELL RP hoje mesmo.</p>
+  <a href="#download" class="btn-primary">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+      <path d="M12 15V3"/><path d="M8 11l4 4 4-4"/><path d="M2 17l.621 2.485A2 2 0 004.561 21h14.878a2 2 0 001.94-1.515L22 17"/>
+    </svg>
+    Download do Launcher
+  </a>
+</div>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-top">
+    <div class="footer-brand">
+      <h3>EJAX BRAMWELL RP</h3>
+      <p>O servidor de roleplay mais imersivo do Brasil. Sua história começa aqui.</p>
+    </div>
+    <div class="footer-links">
+      <div class="footer-col">
+        <h4>Servidor</h4>
+        <ul>
+          <li><a href="#download">Baixar Launcher</a></li>
+          <li><a href="#como-entrar">Como Entrar</a></li>
+          <li><a href="#features">Recursos</a></li>
+        </ul>
+      </div>
+      <div class="footer-col">
+        <h4>Comunidade</h4>
+        <ul>
+          <li><a href="#">Discord</a></li>
+          <li><a href="#">Instagram</a></li>
+          <li><a href="#">YouTube</a></li>
+        </ul>
+      </div>
+      <div class="footer-col">
+        <h4>Suporte</h4>
+        <ul>
+          <li><a href="#">FAQ</a></li>
+          <li><a href="#">Regras</a></li>
+          <li><a href="#">Contato</a></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    <p class="footer-copy">© 2025 EJAX BRAMWELL RP — TODOS OS DIREITOS RESERVADOS</p>
+    <div class="status-badge"><div class="status-dot"></div> SERVIDOR ONLINE</div>
+  </div>
+</footer>
+
+<script>
+/* ── PARTICLES ── */
+(function(){
+  const cv = document.getElementById('city-canvas');
+  const cx = cv.getContext('2d');
+  let W, H;
+  function resize(){ W = cv.width = window.innerWidth; H = cv.height = window.innerHeight; }
+  resize(); window.addEventListener('resize', resize);
+
+  const pts = Array.from({length:80}, () => ({
+    x: Math.random()*4000, y: Math.random()*3000,
+    r: Math.random()*1.4+.3,
+    vx: (Math.random()-.5)*.15, vy: (Math.random()-.5)*.15,
+    a: Math.random()*.65+.1,
+    c: Math.random()>.65 ? '#D4A017' : '#ffffff'
+  }));
+  const streaks = Array.from({length:10}, () => ({
+    x: Math.random()*4000, y: Math.random()*3000,
+    h: Math.random()*55+18, a: Math.random()*.14+.03,
+    v: Math.random()*.28+.08
+  }));
+
+  (function tick(){
+    cx.clearRect(0,0,W,H);
+    pts.forEach(p => {
+      p.x += p.vx; p.y += p.vy;
+      const px = ((p.x % W) + W) % W;
+      const py = ((p.y % H) + H) % H;
+      cx.beginPath(); cx.arc(px, py, p.r, 0, Math.PI*2);
+      cx.fillStyle = p.c; cx.globalAlpha = p.a; cx.fill();
+    });
+    streaks.forEach(s => {
+      s.y += s.v; if(s.y > H+s.h) s.y = -s.h;
+      const g = cx.createLinearGradient(s.x%W, s.y, s.x%W, s.y+s.h);
+      g.addColorStop(0,'transparent'); g.addColorStop(.5,'#D4A017'); g.addColorStop(1,'transparent');
+      cx.beginPath(); cx.moveTo(s.x%W, s.y); cx.lineTo(s.x%W, s.y+s.h);
+      cx.strokeStyle = g; cx.globalAlpha = s.a; cx.lineWidth = 1; cx.stroke();
+    });
+    cx.globalAlpha = 1;
+    requestAnimationFrame(tick);
+  })();
+})();
+
+/* ── NAV ── */
+const nav = document.getElementById('navbar');
+window.addEventListener('scroll', () => nav.classList.toggle('scrolled', scrollY > 50));
+
+/* ── COUNTER ANIMATION ── */
+function countUp(el, end, suffix, ms){
+  let cur = 0, step = end/(ms/16);
+  const t = setInterval(() => {
+    cur = Math.min(cur+step, end);
+    el.textContent = Math.round(cur).toLocaleString('pt-BR') + suffix;
+    if(cur >= end) clearInterval(t);
+  }, 16);
+}
+setTimeout(() => {
+  countUp(document.getElementById('stat-players'),    247, '+', 1200);
+  countUp(document.getElementById('stat-downloads'), 3800, '+', 1600);
+}, 1400);
+
+/* ── PROGRESS BAR ── */
+setTimeout(() => { document.getElementById('dl-bar').style.width = '77%'; }, 700);
+
+/* ── DOWNLOAD BTN FEEDBACK ── */
+document.getElementById('dl-btn').addEventListener('click', function(){
+  const orig = this.innerHTML;
+  this.innerHTML = `<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg> Iniciando...`;
+  setTimeout(() => this.innerHTML = orig, 2800);
+});
+
+/* ── SCROLL REVEAL ── */
+const io = new IntersectionObserver((entries) => {
+  entries.forEach((e,i) => {
+    if(e.isIntersecting){
+      setTimeout(() => e.target.classList.add('visible'), i*80);
+      io.unobserve(e.target);
+    }
+  });
+}, { threshold: .1 });
+document.querySelectorAll('.reveal').forEach(el => io.observe(el));
+</script>
+</body>
+</html>
